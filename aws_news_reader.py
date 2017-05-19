@@ -17,6 +17,11 @@ import os
 import sys
 import subprocess
 from tempfile import gettempdir
+from os.path import expanduser
+from glob import *
+import time
+from pydub import *
+
 
 
 def news_parser(url):
@@ -40,10 +45,12 @@ def news_parser(url):
 def speech_generator(text, index):
     
     index = str(index)
+    #set the home directory below
+    home = expanduser("~")
     try:
         # Request speech synthesis
         response = polly.synthesize_speech(Text=text, OutputFormat="mp3",
-                                            VoiceId="Joanna")
+                                            VoiceId="Salli")
     except (BotoCoreError, ClientError) as error:
         # The service returned an error, exit gracefully
         print(error)
@@ -56,8 +63,8 @@ def speech_generator(text, index):
         # ensure the close method of the stream object will be called automatically
         # at the end of the with statement's scope.
         with closing(response["AudioStream"]) as stream:
-            output =  os.getcwd() + '/audio/' + "speech" + index + ".mp3"
-    
+            output =  home + '/audio/incomplete/' + index + ".mp3"
+            
             try:
                 # Open a file for writing the output as a binary stream
                 with open(output, "wb") as file:
@@ -86,8 +93,32 @@ def speech_generator(text, index):
 session = Session(profile_name="default")
 polly = session.client("polly")
 
-procd_text = news_parser('http://www.newyorker.com/magazine/2013/08/26/whats-wrong-with-me')
+url = 'http://www.newyorker.com/culture/culture-desk/how-roger-ailes-degraded-the-tone-of-public-life-in-america?intcid=mod-latest'
+procd_text = news_parser(url)
+#news_parser('http://www.newyorker.com/magazine/2013/08/26/whats-wrong-with-me')
 
 print(procd_text)
+#pause to make sure it's parsed ok
+time.sleep(10)
 for line_index, line in enumerate(procd_text):
     speech_generator(line, line_index)
+
+#load temp files, then combine using ffmpeg
+playlisst_songs = sorted(glob(expanduser("~")+'/audio/incomplete/*.mp3'), key=os.path.getmtime)
+newlist = []
+for el in playlisst_songs:
+    newlist.append(AudioSegment.from_mp3(el))
+    
+combined = AudioSegment.empty()
+    
+for song in newlist:
+    combined += song
+
+combined.export(expanduser("~")+"/audio/total.mp3", bitrate='160k',format="mp3")
+
+#cleanup the temps
+for el in playlisst_songs:
+	os.remove(el)
+
+print('Done!')
+
