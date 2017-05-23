@@ -39,15 +39,23 @@ def news_parser(url):
     n = 1450
     return [parsed[i:i+n] for i in range(0, len(parsed), n)], doc.title()
         
-def speech_generator(text, index):
+def speech_generator(text, index, is_german):
     
+    #our current index in the array
     index = str(index)
     #set the home directory below
     home = expanduser("~")
+
+    #if german is true, set voice
+    if is_german is True:
+    	voice_id = 'Marlene'
+    else:
+    	voice_id = 'Salli'
+
     try:
         # Request speech synthesis
         response = polly.synthesize_speech(Text=text, OutputFormat="mp3",
-                                            VoiceId="Salli")
+                                            VoiceId=voice_id)
     except (BotoCoreError, ClientError) as error:
         # The service returned an error, exit gracefully
         print(error)
@@ -89,23 +97,28 @@ def speech_generator(text, index):
 # section of the AWS credentials file (~/.aws/credentials).
 session = Session(profile_name="default")
 polly = session.client("polly")
+is_german = False
 
 #This receives the URL, and sends it to the news parser
 url = input("Please paste the url for processing:")
 procd_text, title = news_parser(url)
 
 
+
 #Pause to make sure that the information is read correctly
 print(procd_text)
-decision = input("Continue? [y/n]")
+decision = input("Continue? Insert 'e' for English, 'g' for German, and 'n' to exit.")
 if decision == 'n':
 	print('Goodbye')
 	sys.exit()
+elif decision == 'g':
+	print('German selected.')
+	is_german = True
 
 #Parse lines, and generate speech
 print("Generating speech from Polly...")
 for line_index, line in enumerate(procd_text):
-    speech_generator(line, line_index)
+    speech_generator(line, line_index, is_german)
 
 #Load temp files, then combine using ffmpeg
 playlisst_songs = sorted(glob(expanduser("~")+'/audio/incomplete/*.mp3'), key=os.path.getmtime)
@@ -120,6 +133,8 @@ for song in newlist:
 
 print('Combining files, and removing trash...')
 combined.export(expanduser("~")+"/audio/"+ title + ".mp3", bitrate='160k',format="mp3")
+
+print('Title is: ' + title)
 
 #Erase the temps
 for el in playlisst_songs:
